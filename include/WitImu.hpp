@@ -48,7 +48,7 @@ private:
     std::string m_port_name;
     uint32_t m_baudrate;
     int m_fd;
-	const int c_uiBaud[10] = {921600, 460800, 230400, 115200, 57600, 38400, 19200, 9600, 4800, 2400};
+	const int c_uiBaud[10] = {2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600};
 	LocalTime m_local_time;
 	
 	// runtime

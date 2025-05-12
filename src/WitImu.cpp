@@ -144,7 +144,7 @@ void WitImu::AutoScanSensor(const char *dev)
 	int i, iRetry;
 	unsigned char cBuff[1];
 
-	for (i = 1; i < 10; i++)
+	for (i = 0; i < 10; i++)
 	{
 		serial_close(m_fd);
 		m_baudrate = c_uiBaud[i];

@@ -7,4 +7,5 @@
 int main() {
     WitImu wit_imu("/dev/wit_imu_IWT603T", 921600);
     wit_imu.run();
+    return 0;
 }
