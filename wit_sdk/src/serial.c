@@ -1,7 +1,7 @@
 #include "serial.h"
 
 
-int serial_open(const char* dev, unsigned int baud)
+int serial_open(const char* dev,  uint32_t baud)
 {
     int fd;
     fd = open(dev, O_RDWR|O_NOCTTY); 
@@ -73,7 +73,7 @@ int serial_open(const char* dev, unsigned int baud)
           perror("com set error"); 
           return -1; 
        }
- 
+  
     return fd; 
 }
 

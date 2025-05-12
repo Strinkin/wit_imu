@@ -1,60 +1,28 @@
+/*
+ * @Author: strinkin strinkin@qq.com
+ * @Date: 2025-05-12
+ */
 #include "serial.h"
 #include "wit_c_sdk.h"
 #include "REG.h"
 #include <stdint.h>
 
-#include <string>
+#include "WitImu.hpp"
+#include "LocalTime.hpp"
 #include <chrono>
 
-#define ACC_UPDATE 0x01
-#define GYRO_UPDATE 0x02
-#define ANGLE_UPDATE 0x04
-#define TIME_UPDATE 0x08
-// #define MAG_UPDATE 0x08
-#define READ_UPDATE 0x80
-
-static int fd, s_iCurBaud = 9600;
-static volatile char s_cDataUpdate = 0;
-
-const int c_uiBaud[] = {2400, 460800, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 921600};
-
-static void AutoScanSensor(const char *dev);
-static void SensorDataUpdata(uint32_t uiReg, uint32_t uiRegNum);
-static void Delayms(uint16_t ucMs);
-
 using namespace std;
-int main(int argc, char *argv[])
+
+volatile char WitImu::s_cDataUpdate = 0; // 传感器数据更新标志位
+void WitImu::run()
 {
-
-	// if(argc < 2)
-	// {
-	// 	printf("please input dev name\n");
-	// 	return 0;
-	// }
-
-	const char* port_name = "/dev/wit_imu_IWT603T";
-	fd = serial_open(port_name, 921600);
-	if ((fd < 0))
-	{
-		printf("open %s fail\n", port_name);
-		return 0;
-	}
-	else
-		printf("open %s success\n", port_name);
-
-	float fAcc[3], fGyro[3], fAngle[3];
-	int i, ret;
+    int i;
 	unsigned char cBuff[1];
 
-	WitInit(WIT_PROTOCOL_NORMAL, 0x50); // 确定通信协议, 串口还是can还是i2c
-	WitRegisterCallBack(SensorDataUpdata); // 注册回调函数, 让内部的一个函数指针指向传入的函数
-
-	printf("\r\n********************** wit-motion Normal example  ************************\r\n");
-	// AutoScanSensor(port_name);
-	auto start_time = chrono::steady_clock::now();
-	while (1)
+    auto start_time = chrono::steady_clock::now();
+    while (1)
 	{
-		while (serial_read_data(fd, cBuff, 1))
+		while (serial_read_data(m_fd, cBuff, 1))
 		{
 			WitSerialDataIn(cBuff[0]);
 		}
@@ -69,8 +37,6 @@ int main(int argc, char *argv[])
 				fGyro[i] = sReg[GX + i] / 32768.0f * 2000.0f;
 				fAngle[i] = sReg[Roll + i] / 32768.0f * 180.0f;
 			}
-
-			
 
 			char check[4] = {0, 0, 0, 0};
 			if (s_cDataUpdate & ACC_UPDATE)
@@ -98,13 +64,14 @@ int main(int argc, char *argv[])
 				uint16_t D_H = sReg[DDHH];
 				uint16_t M_S = sReg[MMSS];
 				uint16_t ms = sReg[MS];
-				uint8_t year = (Y_M >> 8) & 0xFF;
-				uint8_t month = (Y_M & 0xFF);
-				uint8_t day = (D_H >> 8) & 0xFF;
-				uint8_t hour = (D_H & 0xFF);
-				uint8_t minute = (M_S >> 8) & 0xFF;
-				uint8_t second = (M_S & 0xFF);
-				printf("time:%04d-%02d-%02d %02d:%02d:%02d:%06d\r\n", year, month, day, hour, minute, second, ms);
+				uint8_t year = (Y_M & 0xFF);
+				uint8_t month = (Y_M >> 8) & 0xFF;
+				uint8_t day = (D_H & 0xFF);
+				uint8_t hour = (D_H >> 8) & 0xFF;
+				uint8_t minute = (M_S & 0xFF);
+				uint8_t second = (M_S >> 8) & 0xFF;
+				m_local_time.print();
+				printf("imu time: %04d-%02d-%02d %02d:%02d:%02d:%03d\r\n", year, month, day, hour, minute, second, ms);
 				s_cDataUpdate &= ~TIME_UPDATE;
 				check[3] = 1;
 			}
@@ -123,13 +90,10 @@ int main(int argc, char *argv[])
 				start_time = end_time;
 			}
 		}
-	}
-
-	serial_close(fd);
-	return 0;
+    }
 }
 
-static void SensorDataUpdata(uint32_t uiReg, uint32_t uiRegNum)
+void WitImu::SensorDataUpdata(uint32_t uiReg, uint32_t uiRegNum)
 {
 	int i;
 	for (i = 0; i < uiRegNum; i++)
@@ -170,21 +134,21 @@ static void SensorDataUpdata(uint32_t uiReg, uint32_t uiRegNum)
 	}
 }
 
-static void Delayms(uint16_t ucMs)
+void WitImu::Delayms(uint16_t ucMs)
 {
 	usleep(ucMs * 1000); 
 }
 
-static void AutoScanSensor(const char *dev)
+void WitImu::AutoScanSensor(const char *dev)
 {
 	int i, iRetry;
 	unsigned char cBuff[1];
 
 	for (i = 1; i < 10; i++)
 	{
-		serial_close(fd);
-		s_iCurBaud = c_uiBaud[i];
-		fd = serial_open(dev, c_uiBaud[i]);
+		serial_close(m_fd);
+		m_baudrate = c_uiBaud[i];
+		m_fd = serial_open(dev, c_uiBaud[i]);
 		printf("try %d baud\r\n", c_uiBaud[i]);
 		iRetry = 2;
 		do
@@ -192,7 +156,7 @@ static void AutoScanSensor(const char *dev)
 			s_cDataUpdate = 0;
 			// WitReadReg(AX, 3); // strinkin将此行代码设为注释
 			Delayms(200);
-			while (serial_read_data(fd, cBuff, 1))
+			while (serial_read_data(m_fd, cBuff, 1))
 			{
 				WitSerialDataIn(cBuff[0]);
 			}
