@@ -12,6 +12,8 @@ file(GLOB_RECURSE SDK_SRCS ${PROJECT_SOURCE_DIR}/src/*.c)
 # )
 message("wit_sdk source dir: ${PROJECT_SOURCE_DIR}")
 message("find wit_sdk source files: ${SDK_SRCS}")
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ON) # for shared lib
 add_library(wit_sdk SHARED ${SDK_SRCS})
 
 #headers

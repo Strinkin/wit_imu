@@ -28,7 +28,7 @@ void WitImu::run()
 		}
 		// printf("\n");
 		// Delayms(1);
-		usleep(800);
+		usleep(700);
 		if (s_cDataUpdate)
 		{
 			for (i = 0; i < 3; i++)
@@ -70,6 +70,7 @@ void WitImu::run()
 				uint8_t hour = (D_H >> 8) & 0xFF;
 				uint8_t minute = (M_S & 0xFF);
 				uint8_t second = (M_S >> 8) & 0xFF;
+				m_local_time.update();
 				m_local_time.print();
 				printf("imu time: %04d-%02d-%02d %02d:%02d:%02d:%03d\r\n", year, month, day, hour, minute, second, ms);
 				s_cDataUpdate &= ~TIME_UPDATE;
